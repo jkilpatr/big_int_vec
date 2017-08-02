@@ -2,7 +2,7 @@ use self::BitVec;
 use std::ops::Add;
 use std::ops::Sub;
 use std::cmp::PartialEq;
-use std::cmp::Ordering
+use std::cmp::Ordering;
 use std::fmt;
 
 struct uvec {
@@ -33,6 +33,35 @@ impl uvec {
 }
 
 impl uvec {
+    fn copy(&self) -> uvec {
+        let msg = "Can't copy vec with unset bits!";
+        let mut count = (self.bv.len() - 1) as i32;
+        let mut ret = uvec::new(0, self.bv.len());
+        while count >= 0 {
+            ret.set(count as usize, ret.get(count as usize).expect(msg));
+            count = count - 1;
+        }
+        ret.bv.negate();
+        ret + one
+    }
+}
+
+impl uvec {
+    fn highest_set_bit(&self) -> u32 {
+        let msg = "Can't use vec with unset bits!";
+        let mut count = (self.bv.len() - 1) as i32;
+        while count >= 0 {
+            if ret.get(count as usize).expect(msg) {
+                let ret = count as u32;
+                return ret;
+            }
+            count = count - 1;
+        }
+        return 0u32;
+    }
+}
+
+impl uvec {
     fn get_val(self) -> i64 {
         let pow = 0i8;
         let ret = 0i64;
@@ -49,17 +78,18 @@ impl uvec {
 }
 
 impl uvec {
-    fn twos_comp(mut self) -> uvec {
-        let one = uvec::new(1);
-        self.bv.negate();
-        self + one
+    fn twos_comp(&self) -> uvec {
+        let one = uvec::new(1, self.bv.len());
+        let ret = uvec::copy(self);
+        ret.bv.negate();
+        ret + one
     }
 }
 
 impl uvec {
     fn is_neg(self) -> bool {
-        let msg = "A bitvector with no bits is neither positive or negative!"
-        self.get(self.len).expect(msg)
+        let msg = "A bitvector with no bits is neither positive or negative!";
+        self.bv.get(self.bv.len() - 1).expect(msg)
     }
 }
 
@@ -149,10 +179,11 @@ impl Ord for uvec {
             Ordering::Equal
         }
         else {
-            let count = (self.len - 1) as i32;
-            while count >= 0 {
-
-                count = count - 1;
+            if self.highest_set_bit() > other.highest_set_bit() {
+                Ordering::Greater
+            }
+            else {
+                Ordering::Less
             }
         }
     }
@@ -170,6 +201,8 @@ impl PartialEq for uvec {
     }
 }
 
+impl Eq for uvec {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,13 +212,6 @@ mod tests {
         let test = uvec::new(1, 256);
         let mut hardcoded = BitVec::from_elem(256, false);
         hardcoded.set(0, true);
-        assert_eq!(test.bv, hardcoded);
-    }
-
-    #[test]
-    fn neg_one() {
-        let test = uvec::new(-1, 256);
-        let hardcoded = BitVec::from_elem(256, true);
         assert_eq!(test.bv, hardcoded);
     }
 
@@ -203,57 +229,6 @@ mod tests {
         hardcoded.set(15, true);
         hardcoded.set(21, true);
         assert_eq!(test.bv, hardcoded);
-    }
-
-    #[test]
-    fn big_neg() {
-        let test = uvec::new(-2147483, 256);
-        let mut hardcoded = BitVec::from_elem(256, true);
-        hardcoded.set(1, false);
-        hardcoded.set(3, false);
-        hardcoded.set(4, false);
-        hardcoded.set(7, false);
-        hardcoded.set(10, false);
-        hardcoded.set(14, false);
-        hardcoded.set(15, false);
-        hardcoded.set(21, false);
-        assert_eq!(test.bv, hardcoded);
-    }
-
-    #[test]
-    fn  zero_sum() {
-        let a = uvec::new(-2147483, 256);
-        let b = uvec::new(2147483, 256);
-        let c = a + b;
-        let d = uvec::new(0);
-        assert_eq!(c.bv, d.bv);
-    }
-
-    #[test]
-    fn  negative_add() {
-        let a = uvec::new(-2147483, 256);
-        let b = uvec::new(-2147483, 256);
-        let c = a + b;
-        let d = uvec::new(-4294966, 256);
-        assert_eq!(c.bv, d.bv);
-    }
-
-    #[test]
-    fn  pos_add() {
-        let a = uvec::new(2147483, 256);
-        let b = uvec::new(2147483, 256);
-        let c = a + b;
-        let d = uvec::new(4294966);
-        assert_eq!(c.bv, d.bv);
-    }
-
-    #[test]
-    fn  negative_sub() {
-        let a = uvec::new(-2147483, 256);
-        let b = uvec::new(-2147483, 256);
-        let c = a - b;
-        let d = uvec::new(0, 256);
-        assert_eq!(c.bv, d.bv);
     }
 
     #[test]

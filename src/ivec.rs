@@ -1,8 +1,9 @@
-use self::BitVec;
+extern crate bit_vec;
+use bit_vec::BitVec;
 use std::ops::Add;
 use std::ops::Sub;
 use std::cmp::PartialEq;
-use std::cmp::Ordering
+use std::cmp::Ordering;
 use std::fmt;
 
 struct ivec {
@@ -16,11 +17,11 @@ impl fmt::Debug for ivec {
 }
 
 impl ivec {
-    fn new(other: i64, size: u64) -> ivec {
-        let mut new = ivec{bv: BitVec::from_elem(size,false)};
-        let neg = other < 0;
-        let other = other.abs();
-        let mut to_add = other as u64;
+    fn new(val: i64, size: usize) -> ivec {
+        let mut new = ivec{bv: BitVec::from_elem(size as usize,false)};
+        let neg = val < 0;
+        let val = val.abs();
+        let mut to_add = val as u64;
         let mut pow = 62i8;
         let two = 2u64;
         while pow >= 0 {
@@ -42,16 +43,16 @@ impl ivec {
 impl ivec {
     fn get_val(self) -> i64 {
         let msg = "No sign bit set for get_val";
-        let neg = self.get(255).expect(msg);
-        let pow = 0i8;
-        let ret = 0i64;
-        let two = 2u8;
+        let neg = self.bv.get(255).expect(msg);
+        let mut pow = 0u32;
+        let mut ret = 0i64;
+        let two = 2u32;
         while pow < 64 {
-            if !neg && self.get(pow) == Some(true){
-                ret = ret + two.pow(pow);
+            if !neg && self.bv.get(pow as usize) == Some(true){
+                ret = ret + two.pow(pow) as i64;
             }
-            else if neg && self.get(pow) == Some(true){
-                ret = ret - two.pow(pow)
+            else if neg && self.bv.get(pow as usize) == Some(true){
+                ret = ret - two.pow(pow) as i64;
             }
             pow = pow + 1;
         }
@@ -61,17 +62,47 @@ impl ivec {
 }
 
 impl ivec {
-    fn twos_comp(mut self) -> ivec {
-        let one = ivec::new(1);
-        self.bv.negate();
-        self + one
+    fn twos_comp(&self) -> ivec {
+        let one = ivec::new(1, self.bv.len());
+        let mut ret = ivec::copy(self);
+        ret.bv.negate();
+        ret + one
+    }
+}
+
+
+impl ivec {
+    fn copy(&self) -> ivec {
+        let msg = "Can't copy vec with unset bits!";
+        let mut count = (self.bv.len() - 1) as i32;
+        let mut ret = ivec::new(0, self.bv.len());
+        while count >= 0 {
+            ret.bv.set(count as usize, self.bv.get(count as usize).expect(msg));
+            count = count - 1;
+        }
+        ret
     }
 }
 
 impl ivec {
-    fn is_neg(self) -> bool {
-        let msg = "A bitvector with no bits is neither positive or negative!"
-        self.get(self.len).expect(msg)
+    fn highest_set_bit(&self) -> u32 {
+        let msg = "Can't use vec with unset bits!";
+        let mut count = (self.bv.len() - 1) as i32;
+        while count >= 0 {
+            if self.bv.get(count as usize).expect(msg) {
+                let ret = count as u32;
+                return ret;
+            }
+            count = count - 1;
+        }
+        return 0u32;
+    }
+}
+
+impl ivec {
+    fn is_neg(&self) -> bool {
+        let msg = "A bitvector with no bits is neither positive or negative!";
+        self.bv.get(self.bv.len()).expect(msg)
     }
 }
 
@@ -159,6 +190,17 @@ impl Ord for ivec {
         else if !self.is_neg() && other.is_neg() {
             Ordering::Greater
         }
+        else if !self.is_neg() && !other.is_neg() {
+            if self.highest_set_bit() > other.highest_set_bit() {
+                Ordering::Greater
+            }
+            else {
+                Ordering::Less
+            }
+        }
+        else {
+            self.twos_comp().cmp(&other.twos_comp())
+        }
     }
 }
 
@@ -173,6 +215,8 @@ impl PartialEq for ivec {
         self.bv == other.bv
     }
 }
+
+impl Eq for ivec {}
 
 #[cfg(test)]
 mod tests {
@@ -229,7 +273,7 @@ mod tests {
         let a = ivec::new(-2147483, 256);
         let b = ivec::new(2147483, 256);
         let c = a + b;
-        let d = ivec::new(0);
+        let d = ivec::new(0, 256);
         assert_eq!(c.bv, d.bv);
     }
 
@@ -247,7 +291,7 @@ mod tests {
         let a = ivec::new(2147483, 256);
         let b = ivec::new(2147483, 256);
         let c = a + b;
-        let d = ivec::new(4294966);
+        let d = ivec::new(4294966, 256);
         assert_eq!(c.bv, d.bv);
     }
 
@@ -262,10 +306,10 @@ mod tests {
 
     #[test]
     fn  pos_sub() {
-        let a = ivec::new(2147483, 256);
+        let a = ivec::new(4294966, 256);
         let b = ivec::new(2147483, 256);
-        let c = a + b;
-        let d = ivec::new(0, 256);
+        let c = a - b;
+        let d = ivec::new(2147483, 256);
         assert_eq!(c.bv, d.bv);
     }
 
