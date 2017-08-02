@@ -85,24 +85,9 @@ impl ivec {
 }
 
 impl ivec {
-    fn highest_set_bit(&self) -> u32 {
-        let msg = "Can't use vec with unset bits!";
-        let mut count = (self.bv.len() - 1) as i32;
-        while count >= 0 {
-            if self.bv.get(count as usize).expect(msg) {
-                let ret = count as u32;
-                return ret;
-            }
-            count = count - 1;
-        }
-        return 0u32;
-    }
-}
-
-impl ivec {
     fn is_neg(&self) -> bool {
         let msg = "A bitvector with no bits is neither positive or negative!";
-        self.bv.get(self.bv.len()).expect(msg)
+        self.bv.get(self.bv.len() - 1).expect(msg)
     }
 }
 
@@ -191,12 +176,20 @@ impl Ord for ivec {
             Ordering::Greater
         }
         else if !self.is_neg() && !other.is_neg() {
-            if self.highest_set_bit() > other.highest_set_bit() {
-                Ordering::Greater
+            let msg = "Can't compare numbers with unset bits!";
+            let mut count = (self.bv.len() - 1) as i32;
+            while count >= 0 {
+                if self.bv.get(count as usize) == Some(true) &&
+                   other.bv.get(count as usize) == Some(false) {
+                   return Ordering::Greater
+                }
+                if self.bv.get(count as usize) == Some(false) &&
+                   other.bv.get(count as usize) == Some(true) {
+                   return Ordering::Less
+                }
+                count = count - 1;
             }
-            else {
-                Ordering::Less
-            }
+            Ordering:: Equal
         }
         else {
             self.twos_comp().cmp(&other.twos_comp())
@@ -319,5 +312,24 @@ mod tests {
         let b = ivec::new(2147483, 256);
         assert_eq!(a,b);
         assert_eq!(a.bv, b.bv);
+    }
+
+    #[test]
+    fn  gv() {
+        let a = ivec::new(2147483, 256);
+        let b = ivec::get_val(a);
+        assert_eq!(2147483, b);
+    }
+
+    #[test]
+    fn  cmp() {
+        let a = ivec::new(2147483, 256);
+        let b = ivec::new(2147484, 256);
+        assert_eq!(a.cmp(&b), Ordering::Less);
+        assert_eq!(b.cmp(&a), Ordering::Greater);
+        assert_eq!(b > a, true);
+        assert_eq!(a < b, true);
+        assert_eq!(a > b, false);
+        assert_eq!(b < a, false);
     }
 }
