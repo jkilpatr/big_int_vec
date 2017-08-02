@@ -1,4 +1,5 @@
-use self::BitVec;
+extern crate bit_vec;
+use bit_vec::BitVec;
 use std::ops::Add;
 use std::ops::Sub;
 use std::cmp::PartialEq;
@@ -16,10 +17,10 @@ impl fmt::Debug for uvec {
 }
 
 impl uvec {
-    fn new(val: u64, size: u64) -> uvec {
-        let mut new = uvec{bv: BitVec::from_elem(size,false)};
+    fn new(val: u64, size: usize) -> uvec {
+        let mut new = uvec{bv: BitVec::from_elem(size as usize,false)};
         let mut to_add = val as u64;
-        let mut pow = 62i8;
+        let mut pow = 62i32;
         let two = 2u64;
         while pow >= 0 {
             if two.pow(pow as u32) <= to_add {
@@ -33,42 +34,13 @@ impl uvec {
 }
 
 impl uvec {
-    fn copy(&self) -> uvec {
-        let msg = "Can't copy vec with unset bits!";
-        let mut count = (self.bv.len() - 1) as i32;
-        let mut ret = uvec::new(0, self.bv.len());
-        while count >= 0 {
-            ret.set(count as usize, ret.get(count as usize).expect(msg));
-            count = count - 1;
-        }
-        ret.bv.negate();
-        ret + one
-    }
-}
-
-impl uvec {
-    fn highest_set_bit(&self) -> u32 {
-        let msg = "Can't use vec with unset bits!";
-        let mut count = (self.bv.len() - 1) as i32;
-        while count >= 0 {
-            if ret.get(count as usize).expect(msg) {
-                let ret = count as u32;
-                return ret;
-            }
-            count = count - 1;
-        }
-        return 0u32;
-    }
-}
-
-impl uvec {
-    fn get_val(self) -> i64 {
-        let pow = 0i8;
-        let ret = 0i64;
-        let two = 2u8;
+    fn get_val(self) -> u64 {
+        let mut pow = 0u32;
+        let mut ret = 0u64;
+        let two = 2u32;
         while pow < 64 {
-            if self.get(pow) == Some(true){
-                ret = ret + two.pow(pow);
+            if self.bv.get(pow as usize) == Some(true){
+                ret = ret + two.pow(pow) as u64;
             }
             pow = pow + 1;
         }
@@ -80,14 +52,28 @@ impl uvec {
 impl uvec {
     fn twos_comp(&self) -> uvec {
         let one = uvec::new(1, self.bv.len());
-        let ret = uvec::copy(self);
+        let mut ret = uvec::copy(self);
         ret.bv.negate();
         ret + one
     }
 }
 
+
 impl uvec {
-    fn is_neg(self) -> bool {
+    fn copy(&self) -> uvec {
+        let msg = "Can't copy vec with unset bits!";
+        let mut count = (self.bv.len() - 1) as i32;
+        let mut ret = uvec::new(0, self.bv.len());
+        while count >= 0 {
+            ret.bv.set(count as usize, self.bv.get(count as usize).expect(msg));
+            count = count - 1;
+        }
+        ret
+    }
+}
+
+impl uvec {
+    fn is_neg(&self) -> bool {
         let msg = "A bitvector with no bits is neither positive or negative!";
         self.bv.get(self.bv.len() - 1).expect(msg)
     }
@@ -98,11 +84,7 @@ impl Add for uvec {
 
     fn add(mut self, other: uvec) -> uvec {
          assert_eq!(self.bv.len(), other.bv.len());
-         // Look at the sub operator, since we only ever flip the other val
-         // it should be impossible to have a negative self value
-         assert_eq!(self.is_neg(), false);
          let msg = "How do you expect me to add a one bit vector?";
-         let neg = self.bv.get(0).expect(msg) || other.bv.get(0).expect(msg);
          let mut bit = 0;
          let mut carry = false;
          while bit < self.bv.len() {
@@ -157,9 +139,9 @@ impl Add for uvec {
              bit = bit + 1;
          }
          // Overflow!
-         assert_eq!(carry && !neg, false);
+         //assert_eq!(carry, false);
          // Underflow!
-         assert_eq!(self.is_neg(), false);
+         //assert_eq!(self.is_neg(), false);
          self
     }
 }
@@ -167,24 +149,32 @@ impl Add for uvec {
 impl Sub for uvec {
     type Output = uvec;
     fn sub(self, other: uvec) -> uvec {
+        assert_eq!(self.is_neg(), false);
+        assert_eq!(other.is_neg() , false);
         self + other.twos_comp()
     }
 }
 
 impl Ord for uvec {
     fn cmp(&self, other: &uvec) -> Ordering {
-        assert_eq!(self.is_neg(), false);
-        assert_eq!(other.is_neg(), false);
         if self == other {
             Ordering::Equal
         }
         else {
-            if self.highest_set_bit() > other.highest_set_bit() {
-                Ordering::Greater
+            let msg = "Can't compare numbers with unset bits!";
+            let mut count = (self.bv.len() - 1) as i32;
+            while count >= 0 {
+                if self.bv.get(count as usize) == Some(true) &&
+                   other.bv.get(count as usize) == Some(false) {
+                   return Ordering::Greater
+                }
+                if self.bv.get(count as usize) == Some(false) &&
+                   other.bv.get(count as usize) == Some(true) {
+                   return Ordering::Less
+                }
+                count = count - 1;
             }
-            else {
-                Ordering::Less
-            }
+            Ordering:: Equal
         }
     }
 }
@@ -232,11 +222,21 @@ mod tests {
     }
 
     #[test]
-    fn  pos_sub() {
+    fn  pos_add() {
         let a = uvec::new(2147483, 256);
         let b = uvec::new(2147483, 256);
         let c = a + b;
-        let d = uvec::new(0, 256);
+        let d = uvec::new(4294966, 256);
+        assert_eq!(c.bv, d.bv);
+    }
+
+    #[test]
+    fn  pos_sub() {
+        let a = uvec::new(4294966, 256);
+        let b = uvec::new(2147483, 256);
+        let c = a - b;
+        let d = uvec::new(2147483, 256);
+        assert_eq!(c.is_neg(), false);
         assert_eq!(c.bv, d.bv);
     }
 
@@ -246,5 +246,24 @@ mod tests {
         let b = uvec::new(2147483, 256);
         assert_eq!(a,b);
         assert_eq!(a.bv, b.bv);
+    }
+
+    #[test]
+    fn  gv() {
+        let a = uvec::new(2147483, 256);
+        let b = uvec::get_val(a);
+        assert_eq!(2147483, b);
+    }
+
+    #[test]
+    fn  cmp() {
+        let a = uvec::new(2147483, 256);
+        let b = uvec::new(2147484, 256);
+        assert_eq!(a.cmp(&b), Ordering::Less);
+        assert_eq!(b.cmp(&a), Ordering::Greater);
+        assert_eq!(b > a, true);
+        assert_eq!(a < b, true);
+        assert_eq!(a > b, false);
+        assert_eq!(b < a, false);
     }
 }

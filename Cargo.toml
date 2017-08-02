@@ -1,0 +1,7 @@
+[package]
+name = "eth_utils"
+version = "0.1.0"
+authors = ["jkilpatr <jkilpatr@redhat.com>"]
+
+[dependencies]
+bit-vec = "0.4.4"
