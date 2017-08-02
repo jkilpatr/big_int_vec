@@ -1,5 +1,5 @@
 [package]
-name = "eth_utils"
+name = "op-vec"
 version = "0.1.0"
 authors = ["jkilpatr <jkilpatr@redhat.com>"]
 
